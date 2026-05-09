@@ -227,7 +227,10 @@ function HomePage() {
     setSeries(allSeries);
   };
 
-  const categories = Array.from(new Set(allSeries.flatMap(s => s.tags || []))).filter(Boolean);
+  // Combine predefined categories with dynamic ones
+  const predefinedCategories = ["Romantis", "CEO", "Balas Dendam", "Pernikahan", "Tragedi", "Fantasi", "Keluarga"];
+  const dynamicCategories = Array.from(new Set(allSeries.flatMap(s => s.tags || []))).filter(Boolean);
+  const categories = Array.from(new Set([...predefinedCategories, ...dynamicCategories]));
 
   // Extract top items for different sections
   const featuredVideo = series.length > 0 ? series[0] : null;
