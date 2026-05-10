@@ -604,6 +604,17 @@ app.get('/api/:provider/detail', async (c) => {
     } else {
       rawData = result.data || result;
     }
+    
+    if (Array.isArray(rawData)) {
+      rawData = rawData.find((item: any) => item.id == id || item.bookId == id || item.collection_id == id || item.albumId == id || item.shortPlayId == id || item.dramaId == id || item.key == id) || rawData[0];
+    }
+
+    if (!rawData) {
+        return c.json({
+          success: true,
+          data: { id, title: "Unknown", desc: "", total_episodes: 100, cover: "" }
+        });
+    }
 
     return c.json({
       success: true,
@@ -611,7 +622,7 @@ app.get('/api/:provider/detail', async (c) => {
         id: id,
         title: rawData.title || rawData.bookName || rawData.name || rawData.book_title || rawData.shortPlayName || "Unknown",
         desc: rawData.description || rawData.introduction || rawData.special_desc || rawData.desc || rawData.shotIntroduce || "",
-        total_episodes: rawData.totalEpisodes || rawData.chapterCount || rawData.total_episodes || rawData.chapter_count || rawData.episodes || rawData.totalEpisode || 0,
+        total_episodes: rawData.totalEpisodes || rawData.chapterCount || rawData.total_episodes || rawData.chapter_count || rawData.episodes || rawData.totalEpisode || rawData.episode_count || rawData.episodeCount || 0,
         cover: rawData.cover || rawData.coverWap || rawData.book_pic || (rawData.cover_urls?.[0] || '') || rawData.img || rawData.shortPlayCover || rawData.posterImg || "",
       }
     });
@@ -729,7 +740,18 @@ app.get('/api/:provider/episode', async (c) => {
     }
 
     if (!videoUrl) {
-      return c.json({ success: false, message: "URL video tidak ditemukan untuk provider ini di episode yang diminta." });
+      const obj = Array.isArray(decryptedData) ? (decryptedData[parseInt(ep) - 1] || decryptedData[0]) : decryptedData;
+      if (obj) {
+         title = title || obj.episodeName || obj.chapterName || obj.title || obj.name || `Episode ${ep}`;
+         videoUrl = obj.playVoucher || obj.playUrl || obj.videoUrl || obj.url || obj.m3u8_url || obj.best_url || "";
+         if (!videoUrl && obj.episode_info) {
+            videoUrl = obj.episode_info.playVoucher || obj.episode_info.playUrl || obj.episode_info.videoUrl || obj.episode_info.url || obj.episode_info.m3u8_url || obj.episode_info.external_audio_h264_m3u8 || "";
+         }
+      }
+    }
+
+    if (!videoUrl) {
+      return c.json({ success: false, message: "URL video tidak ditemukan untuk provider ini di episode yang diminta.", debug: Object.keys(decryptedData).join(', ') });
     }
 
     const rawUrl = videoUrl;

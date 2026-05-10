@@ -671,7 +671,7 @@ function VideoFeedPage() {
               <button onClick={() => setShowEps(false)} className="text-slate-400 p-2">Tutup</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 bg-slate-900 grid grid-cols-5 gap-3 content-start">
-              {Array.from({ length: totalEpisodes || 10 }).map((_, i) => (
+              {Array.from({ length: Math.max(totalEpisodes || 0, 100) }).map((_, i) => (
                 <button
                   key={i}
                   onClick={() => {
