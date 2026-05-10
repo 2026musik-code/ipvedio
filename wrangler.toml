@@ -12,4 +12,4 @@ bucket_name = "vpsai"
 
 [[kv_namespaces]]
 binding = "SETTINGS"
-id = "settings-kv-placeholder"
+id = "4043cc7b6c18458d9d404e9e9ba3399b"
