@@ -692,8 +692,8 @@ function VideoFeedPage() {
 
       {/* QR Popup Limiter */}
       {showQrPopup && qrConfig && (
-        <div className="absolute inset-0 z-[60] flex justify-center items-center p-6 bg-black/95 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl flex flex-col items-center text-center">
+        <div className="absolute inset-0 z-[60] flex justify-center items-center p-4 bg-black/95 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl flex flex-col items-center text-center">
             <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
               <Shield className="text-emerald-400" size={24} />
               Akses Terbatas
@@ -702,8 +702,8 @@ function VideoFeedPage() {
               {qrConfig.popupText}
             </p>
             {qrConfig.qrCodeUrl && (
-              <div className="bg-white p-3 rounded-xl mb-6 shadow-inner w-full max-w-[280px]">
-                <img src={qrConfig.qrCodeUrl} alt="QR Code" className="w-full h-auto object-contain aspect-square" />
+              <div className="bg-white p-2 rounded-xl mb-6 shadow-inner w-full flex items-center justify-center">
+                <img src={qrConfig.qrCodeUrl} alt="QR Code" className="w-[360px] max-w-full h-auto object-contain" />
               </div>
             )}
             <button 

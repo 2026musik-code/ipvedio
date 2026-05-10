@@ -90,7 +90,6 @@ app.use('*', async (c, next) => {
   }
 
   // Block check
-  const config = await getConfig(c);
   const isBlocked = config.blocklist.some((b: any) => 
      (b.ip && ip.includes(b.ip)) || (b.ua && ua.toLowerCase().includes(b.ua.toLowerCase()))
   );
