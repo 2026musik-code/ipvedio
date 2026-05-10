@@ -155,6 +155,20 @@ export default function AdminPage() {
     } catch (e) {}
   };
 
+  const handleSetUserLimit = async (name: string, currentLimit?: number) => {
+    const input = window.prompt(`Atur limit video untuk ${name} (kosongkan untuk mengikuti aturan global):`, currentLimit !== undefined ? currentLimit.toString() : '');
+    if (input === null) return;
+    
+    try {
+      await fetch(`/api/admin/users/${encodeURIComponent(name)}/limit`, {
+        method: 'POST',
+        headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: input })
+      });
+      loadData();
+    } catch (e) {}
+  };
+
   const handleDeleteUser = async (name: string) => {
     if (!window.confirm(`Yakin ingin menghapus user: ${name}?`)) return;
     try {
@@ -266,7 +280,13 @@ export default function AdminPage() {
                              <span aria-hidden="true" className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${u.forcePopup ? 'translate-x-2' : '-translate-x-2'}`} />
                            </button>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                           <button 
+                             onClick={() => handleSetUserLimit(u.name, u.limit)}
+                             className="text-emerald-400 hover:text-emerald-300 text-xs font-medium px-3 py-1 bg-emerald-400/10 hover:bg-emerald-400/20 rounded transition-colors"
+                           >
+                             {u.limit !== undefined ? `Limit: ${u.limit}` : 'Limit Global'}
+                           </button>
                            <button 
                              onClick={() => handleDeleteUser(u.name)}
                              className="text-red-400 hover:text-red-300 text-xs font-medium px-3 py-1 bg-red-400/10 hover:bg-red-400/20 rounded transition-colors"

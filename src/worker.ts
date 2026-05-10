@@ -20,7 +20,7 @@ let memoryConfig = {
   adminPassword: "admin",
   limitPerUser: 0,
   qrCodeUrl: "",
-  registeredUsers: {} as Record<string, { ip: string, ua: string, forcePopup: boolean, views: number, createdAt: number, lastSeen: number }>
+  registeredUsers: {} as Record<string, { ip: string, ua: string, forcePopup: boolean, views: number, createdAt: number, lastSeen: number, limit?: number }>
 };
 
 let activeUsers = new Map<string, { ip: string, ua: string, name: string, lastSeen: number, views: number }>();
@@ -242,16 +242,35 @@ app.get('/api/app-config', async (c) => {
   const name = c.req.header('x-user-name') || 'Anonymous';
   const config = await getConfig(c);
   const forcePopup = name !== 'Anonymous' && config.registeredUsers?.[name]?.forcePopup;
+  const userLimit = (name !== 'Anonymous' && config.registeredUsers?.[name]?.limit !== undefined) 
+      ? config.registeredUsers[name].limit 
+      : config.limitPerUser;
   
   return c.json({
     success: true,
     data: {
       popupText: config.popupText,
       qrCodeUrl: config.qrCodeUrl,
-      limitPerUser: config.limitPerUser,
+      limitPerUser: userLimit,
       forcePopup: !!forcePopup
     }
   });
+});
+
+app.post('/api/admin/users/:name/limit', async (c) => {
+  const name = c.req.param('name');
+  const body = await c.req.json();
+  const config = await getConfig(c);
+  if (!config.registeredUsers) config.registeredUsers = {};
+  if (config.registeredUsers[name]) {
+     if (body.limit === '' || body.limit === null || body.limit === undefined) {
+        delete config.registeredUsers[name].limit;
+     } else {
+        config.registeredUsers[name].limit = parseInt(body.limit);
+     }
+     await saveConfig(c, config);
+  }
+  return c.json({ success: true });
 });
 
 app.post('/api/track-view', async (c) => {

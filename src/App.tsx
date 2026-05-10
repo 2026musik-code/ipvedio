@@ -646,7 +646,7 @@ function VideoFeedPage() {
           <VideoItem 
             key={videos[0].id} 
             video={videos[0]} 
-            isActive={true} 
+            isActive={!showQrPopup} 
             onEnded={() => {
               if (currentEpisode < (totalEpisodes || 1000)) {
                 setCurrentEpisode(prev => prev + 1);
@@ -802,7 +802,7 @@ function VideoItem({ video, isActive, onEnded }: { video: any, isActive: boolean
   }, [isActive, video.url]);
 
   const togglePlay = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !isActive) return;
     if (isPlaying) {
       videoRef.current.pause();
     } else {
