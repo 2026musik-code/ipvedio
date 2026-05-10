@@ -527,4 +527,19 @@ app.get('/api/:provider/homepage', async (c) => {
    return c.redirect(`/api/${provider}/foryou`);
 });
 
+app.get('*', async (c) => {
+  if (c.req.path.startsWith('/api/')) {
+    return c.notFound();
+  }
+  // Fallback for SPA routing to serve index.html
+  try {
+    const url = new URL(c.req.url);
+    url.pathname = '/';
+    // @ts-ignore
+    return await c.env?.ASSETS?.fetch(new Request(url, c.req.raw));
+  } catch (e) {
+    return c.text('Not found', 404);
+  }
+});
+
 export default app;

@@ -1,0 +1,7 @@
+name = "ipvedio"
+compatibility_date = "2024-05-10"
+main = "src/worker.ts"
+
+[assets]
+directory = "dist"
+binding = "ASSETS"
