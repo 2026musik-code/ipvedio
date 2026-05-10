@@ -3,6 +3,8 @@ import { Home, Compass, Film, User, Play, ChevronLeft, MoreHorizontal, Heart, Me
 import React, { useState, useRef, useEffect } from 'react';
 import Hls from 'hls.js';
 
+import AdminPage from './AdminPage';
+
 const API_BASE = '';
 
 // MOCK DATA for Video Feed
@@ -425,6 +427,43 @@ function VideoFeedPage() {
   const [showEps, setShowEps] = useState(false);
   const [totalEpisodes, setTotalEpisodes] = useState(0);
 
+  // QR and Limit config
+  const [qrConfig, setQrConfig] = useState<any>(null);
+  const [showQrPopup, setShowQrPopup] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/app-config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+           setQrConfig(data.data);
+           // Track view after fetching config
+           if (collectionId) {
+             fetch('/api/track-view', { method: 'POST' })
+               .then(r => r.json())
+               .then(trackData => {
+                 if (trackData.success && trackData.views >= data.data.limitPerUser) {
+                   setShowQrPopup(true);
+                 }
+               });
+           }
+        }
+      })
+      .catch(() => {});
+  }, [collectionId]);
+
+  // Handle currentEpisode changes separately
+  useEffect(() => {
+     if (!collectionId || !qrConfig) return;
+     fetch('/api/track-view', { method: 'POST' })
+        .then(r => r.json())
+        .then(trackData => {
+           if (trackData.success && trackData.views >= qrConfig.limitPerUser) {
+              setShowQrPopup(true);
+           }
+        });
+  }, [currentEpisode]);
+
   // Auto pick random drama if no id is provided
   useEffect(() => {
     if (!collectionId) {
@@ -599,6 +638,32 @@ function VideoFeedPage() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Popup Limiter */}
+      {showQrPopup && qrConfig && (
+        <div className="absolute inset-0 z-[60] flex justify-center items-center p-6 bg-black/95 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl flex flex-col items-center text-center">
+            <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+              <Shield className="text-emerald-400" size={24} />
+              Akses Terbatas
+            </h2>
+            <p className="text-slate-300 text-sm mb-6 leading-relaxed whitespace-pre-wrap">
+              {qrConfig.popupText}
+            </p>
+            {qrConfig.qrCodeUrl && (
+              <div className="bg-white p-3 rounded-xl mb-6 shadow-inner">
+                <img src={qrConfig.qrCodeUrl} alt="QR Code" className="w-48 h-48 object-contain" />
+              </div>
+            )}
+            <button 
+              onClick={() => setShowQrPopup(false)}
+              className="mt-2 text-slate-500 font-medium text-sm hover:text-white transition-colors"
+            >
+              Nanti saja (Tutup)
+            </button>
           </div>
         </div>
       )}
@@ -987,6 +1052,7 @@ export default function App() {
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/profile" element={<HomePage />} />
           <Route path="/watch/feed" element={<VideoFeedPage />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </Router>
     </div>

@@ -2,11 +2,207 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import CryptoJS from 'crypto-js';
 
-const app = new Hono();
+type Env = {
+  vpsai?: any; // R2 Bucket binding
+  SETTINGS?: any; // KV Namespace binding
+};
+
+const app = new Hono<{ Bindings: Env }>();
 app.use('*', cors());
 
 let proxyIPs: string[] = [];
 let lastFetch = 0;
+
+// Admin states
+let memoryConfig = {
+  popupText: "Silakan scan QR Code ini untuk melanjutkan.",
+  blocklist: [] as { ip: string, ua: string }[],
+  adminPassword: "admin",
+  limitPerUser: 5,
+  qrCodeUrl: ""
+};
+
+let activeUsers = new Map<string, { ip: string, ua: string, lastSeen: number, views: number }>();
+let memoryQr: { buffer: ArrayBuffer, type: string } | null = null;
+
+const getConfig = async (c: any) => {
+  if (c.env?.SETTINGS) {
+    try {
+       const val = await c.env.SETTINGS.get("appConfig", "json");
+       if (val) return { ...memoryConfig, ...val };
+    } catch(e) {}
+  }
+  return memoryConfig;
+};
+
+const saveConfig = async (c: any, newConfig: any) => {
+  const current = await getConfig(c);
+  memoryConfig = { ...current, ...newConfig };
+  if (c.env?.SETTINGS) {
+    try {
+      await c.env.SETTINGS.put("appConfig", JSON.stringify(memoryConfig));
+    } catch(e) {}
+  }
+};
+
+// Activity tracking & Blocklist middleware
+app.use('*', async (c, next) => {
+  const isApi = c.req.path.startsWith('/api/');
+  if (!isApi) return next();
+
+  const ip = c.req.header('x-real-ip') || c.req.header('cf-connecting-ip') || '127.0.0.1';
+  const ua = c.req.header('user-agent') || 'Unknown';
+  
+  // Track user
+  const now = Date.now();
+  const existing = activeUsers.get(ip);
+  activeUsers.set(ip, { 
+    ip, 
+    ua, 
+    lastSeen: now, 
+    views: existing ? existing.views : 0 
+  });
+  
+  // Clean old users (12 hours)
+  for (const [key, val] of activeUsers.entries()) {
+    if (now - val.lastSeen > 12 * 60 * 60 * 1000) {
+      activeUsers.delete(key);
+    }
+  }
+
+  // Block check
+  const config = await getConfig(c);
+  const isBlocked = config.blocklist.some((b: any) => 
+     (b.ip && ip.includes(b.ip)) || (b.ua && ua.toLowerCase().includes(b.ua.toLowerCase()))
+  );
+  
+  if (isBlocked && !c.req.path.startsWith('/api/admin')) {
+    return c.json({ success: false, message: 'Access Denied: Banned' }, 403);
+  }
+
+  await next();
+});
+
+// Admin auth middleware
+app.use('/api/admin/*', async (c, next) => {
+  if (c.req.path === '/api/admin/login') return next();
+  const token = c.req.header('authorization');
+  const config = await getConfig(c);
+  if (token !== config.adminPassword) {
+    return c.json({ success: false, message: 'Unauthorized' }, 401);
+  }
+  await next();
+});
+
+app.post('/api/admin/login', async (c) => {
+  const body = await c.req.json();
+  const config = await getConfig(c);
+  if (body.password === config.adminPassword) {
+    return c.json({ success: true, token: config.adminPassword });
+  }
+  return c.json({ success: false });
+});
+
+app.get('/api/admin/status', async (c) => {
+  const config = await getConfig(c);
+  const now = Date.now();
+  const onlineThreshold = 5 * 60 * 1000; // 5 mins
+  const users = Array.from(activeUsers.values()).map(u => ({
+    ...u,
+    isOnline: (now - u.lastSeen) < onlineThreshold
+  }));
+  
+  return c.json({
+    success: true,
+    users,
+    onlineCount: users.filter(u => u.isOnline).length,
+    config: {
+      popupText: config.popupText,
+      limitPerUser: config.limitPerUser,
+      blocklist: config.blocklist
+    }
+  });
+});
+
+app.post('/api/admin/config', async (c) => {
+  const body = await c.req.json();
+  const newConfig: any = {};
+  if (body.popupText !== undefined) newConfig.popupText = body.popupText;
+  if (body.limitPerUser !== undefined) newConfig.limitPerUser = parseInt(body.limitPerUser);
+  if (body.adminPassword) newConfig.adminPassword = body.adminPassword;
+  
+  // Blocklist
+  if (body.blockIp !== undefined) {
+    const config = await getConfig(c);
+    const bl = [...config.blocklist, { ip: body.blockIp, ua: body.blockUa || '' }];
+    newConfig.blocklist = bl;
+  }
+  if (body.unblockIndex !== undefined) {
+    const config = await getConfig(c);
+    const bl = config.blocklist.filter((_: any, i: number) => i !== body.unblockIndex);
+    newConfig.blocklist = bl;
+  }
+
+  await saveConfig(c, newConfig);
+  return c.json({ success: true });
+});
+
+app.post('/api/admin/upload-qr', async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    if (file && file instanceof File) {
+       const buffer = await file.arrayBuffer();
+       if (c.env?.vpsai) {
+          await c.env.vpsai.put('qr.png', buffer, { httpMetadata: { contentType: file.type } });
+       } else {
+          memoryQr = { buffer, type: file.type };
+       }
+       await saveConfig(c, { qrCodeUrl: '/api/qr-image?t=' + Date.now() });
+       return c.json({ success: true, url: '/api/qr-image?t=' + Date.now() });
+    }
+    return c.json({ success: false, message: 'No file' });
+  } catch(e: any) {
+    return c.json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/qr-image', async (c) => {
+  if (c.env?.vpsai) {
+    const object = await c.env.vpsai.get('qr.png');
+    if (object) {
+      c.header('Content-Type', object.httpMetadata?.contentType || 'image/png');
+      return c.body(object.body);
+    }
+  } else if (memoryQr) {
+    c.header('Content-Type', memoryQr.type);
+    return c.body(memoryQr.buffer);
+  }
+  return c.notFound();
+});
+
+app.get('/api/app-config', async (c) => {
+  const config = await getConfig(c);
+  return c.json({
+    success: true,
+    data: {
+      popupText: config.popupText,
+      qrCodeUrl: config.qrCodeUrl,
+      limitPerUser: config.limitPerUser
+    }
+  });
+});
+
+app.post('/api/track-view', async (c) => {
+  const ip = c.req.header('x-real-ip') || c.req.header('cf-connecting-ip') || '127.0.0.1';
+  const existing = activeUsers.get(ip);
+  if (existing) {
+    existing.views += 1;
+    activeUsers.set(ip, existing);
+    return c.json({ success: true, views: existing.views });
+  }
+  return c.json({ success: true, views: 0 });
+});
 
 const loadProxyIPs = async () => {
   try {
