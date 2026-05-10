@@ -144,6 +144,28 @@ export default function AdminPage() {
     setUploadingQr(false);
   };
 
+  const handleTogglePopup = async (name: string, forcePopup: boolean) => {
+    try {
+      await fetch(`/api/admin/users/${encodeURIComponent(name)}/popup`, {
+        method: 'POST',
+        headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forcePopup: !forcePopup })
+      });
+      loadData();
+    } catch (e) {}
+  };
+
+  const handleDeleteUser = async (name: string) => {
+    if (!window.confirm(`Yakin ingin menghapus user: ${name}?`)) return;
+    try {
+      await fetch(`/api/admin/users/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': token }
+      });
+      loadData();
+    } catch (e) {}
+  };
+
   if (!token) {
     return (
       <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center p-4">
@@ -215,6 +237,8 @@ export default function AdminPage() {
                       <th className="px-4 py-3">Views</th>
                       <th className="px-4 py-3">Last Seen</th>
                       <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Force QR</th>
+                      <th className="px-4 py-3 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
@@ -233,11 +257,28 @@ export default function AdminPage() {
                             <span className="text-slate-500 font-medium bg-slate-800 px-2 py-1 rounded text-xs">Offline</span>
                           )}
                         </td>
+                        <td className="px-4 py-3">
+                           <button 
+                             onClick={() => handleTogglePopup(u.name, u.forcePopup)}
+                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${u.forcePopup ? 'bg-red-500' : 'bg-slate-700'}`}
+                           >
+                             <span className="sr-only">Toggle QR</span>
+                             <span aria-hidden="true" className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${u.forcePopup ? 'translate-x-2' : '-translate-x-2'}`} />
+                           </button>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                           <button 
+                             onClick={() => handleDeleteUser(u.name)}
+                             className="text-red-400 hover:text-red-300 text-xs font-medium px-3 py-1 bg-red-400/10 hover:bg-red-400/20 rounded transition-colors"
+                           >
+                             Hapus
+                           </button>
+                        </td>
                       </tr>
                     ))}
                     {(!data?.users || data.users.length === 0) && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-slate-500">Belum ada user.</td>
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Belum ada user.</td>
                       </tr>
                     )}
                   </tbody>

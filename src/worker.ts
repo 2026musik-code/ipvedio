@@ -19,7 +19,8 @@ let memoryConfig = {
   blocklist: [] as { ip: string, ua: string }[],
   adminPassword: "admin",
   limitPerUser: 0,
-  qrCodeUrl: ""
+  qrCodeUrl: "",
+  registeredUsers: {} as Record<string, { ip: string, ua: string, forcePopup: boolean, views: number, createdAt: number, lastSeen: number }>
 };
 
 let activeUsers = new Map<string, { ip: string, ua: string, name: string, lastSeen: number, views: number }>();
@@ -65,6 +66,22 @@ app.use('*', async (c, next) => {
     views: existing ? existing.views : 0 
   });
   
+  const config = await getConfig(c);
+  let configChanged = false;
+  if (name !== 'Anonymous') {
+     if (!config.registeredUsers) config.registeredUsers = {};
+     if (!config.registeredUsers[name]) {
+         config.registeredUsers[name] = { ip, ua, forcePopup: false, views: 0, createdAt: now, lastSeen: now };
+         configChanged = true;
+     } else {
+         config.registeredUsers[name].lastSeen = now; 
+     }
+  }
+  
+  if (configChanged) {
+      await saveConfig(c, config);
+  }
+
   // Clean old users (12 hours)
   for (const [key, val] of activeUsers.entries()) {
     if (now - val.lastSeen > 12 * 60 * 60 * 1000) {
@@ -109,21 +126,60 @@ app.get('/api/admin/status', async (c) => {
   const config = await getConfig(c);
   const now = Date.now();
   const onlineThreshold = 5 * 60 * 1000; // 5 mins
-  const users = Array.from(activeUsers.values()).map(u => ({
-    ...u,
-    isOnline: (now - u.lastSeen) < onlineThreshold
-  }));
   
+  const regUsers = config.registeredUsers || {};
+  const activeArr = Array.from(activeUsers.values());
+
+  const users = Object.entries(regUsers).map(([uName, data]: any) => {
+     const memUser = activeArr.find(a => a.name === uName);
+     const isOnline = memUser ? (now - memUser.lastSeen < onlineThreshold) : false;
+     return {
+        name: uName,
+        ...data,
+        isOnline,
+        views: Math.max(data.views || 0, memUser?.views || 0),
+        lastSeen: memUser?.lastSeen || data.lastSeen || data.createdAt
+     };
+  });
+  
+  // Sort by online first, then by lastSeen
+  users.sort((a, b) => {
+      if (a.isOnline === b.isOnline) return b.lastSeen - a.lastSeen;
+      return a.isOnline ? -1 : 1;
+  });
+
   return c.json({
     success: true,
     users,
-    onlineCount: users.filter(u => u.isOnline).length,
+    onlineCount: users.filter((u: any) => u.isOnline).length,
     config: {
       popupText: config.popupText,
       limitPerUser: config.limitPerUser,
       blocklist: config.blocklist
     }
   });
+});
+
+app.post('/api/admin/users/:name/popup', async (c) => {
+  const name = c.req.param('name');
+  const body = await c.req.json();
+  const config = await getConfig(c);
+  if (!config.registeredUsers) config.registeredUsers = {};
+  if (config.registeredUsers[name]) {
+     config.registeredUsers[name].forcePopup = !!body.forcePopup;
+     await saveConfig(c, config);
+  }
+  return c.json({ success: true });
+});
+
+app.delete('/api/admin/users/:name', async (c) => {
+  const name = c.req.param('name');
+  const config = await getConfig(c);
+  if (config.registeredUsers && config.registeredUsers[name]) {
+     delete config.registeredUsers[name];
+     await saveConfig(c, config);
+  }
+  return c.json({ success: true });
 });
 
 app.post('/api/admin/config', async (c) => {
@@ -184,26 +240,45 @@ app.get('/api/qr-image', async (c) => {
 });
 
 app.get('/api/app-config', async (c) => {
+  const name = c.req.header('x-user-name') || 'Anonymous';
   const config = await getConfig(c);
+  const forcePopup = name !== 'Anonymous' && config.registeredUsers?.[name]?.forcePopup;
+  
   return c.json({
     success: true,
     data: {
       popupText: config.popupText,
       qrCodeUrl: config.qrCodeUrl,
-      limitPerUser: config.limitPerUser
+      limitPerUser: config.limitPerUser,
+      forcePopup: !!forcePopup
     }
   });
 });
 
 app.post('/api/track-view', async (c) => {
   const ip = c.req.header('x-real-ip') || c.req.header('cf-connecting-ip') || '127.0.0.1';
+  const name = c.req.header('x-user-name') || 'Anonymous';
+  
+  const config = await getConfig(c);
   const existing = activeUsers.get(ip);
+  let activeViews = 0;
   if (existing) {
     existing.views += 1;
+    activeViews = existing.views;
     activeUsers.set(ip, existing);
-    return c.json({ success: true, views: existing.views });
   }
-  return c.json({ success: true, views: 0 });
+  
+  let views = activeViews;
+  let forcePopup = false;
+  if (name !== 'Anonymous' && config.registeredUsers?.[name]) {
+     config.registeredUsers[name].views = Math.max((config.registeredUsers[name].views || 0) + 1, activeViews);
+     views = config.registeredUsers[name].views;
+     forcePopup = !!config.registeredUsers[name].forcePopup;
+     // Fire and forget save
+     saveConfig(c, config).catch(() => {});
+  }
+  
+  return c.json({ success: true, views, forcePopup });
 });
 
 const loadProxyIPs = async () => {

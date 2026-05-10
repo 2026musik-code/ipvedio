@@ -488,10 +488,12 @@ function VideoFeedPage() {
              apiFetch('/api/track-view', { method: 'POST' })
                .then(r => r.json())
                .then(trackData => {
-                 if (trackData.success && trackData.views >= data.data.limitPerUser) {
+                 if (trackData.success && (trackData.views >= data.data.limitPerUser || trackData.forcePopup)) {
                    setShowQrPopup(true);
                  }
                });
+           } else if (data.data.forcePopup) {
+               setShowQrPopup(true);
            }
         }
       })
@@ -504,7 +506,7 @@ function VideoFeedPage() {
      apiFetch('/api/track-view', { method: 'POST' })
         .then(r => r.json())
         .then(trackData => {
-           if (trackData.success && trackData.views >= qrConfig.limitPerUser) {
+           if (trackData.success && (trackData.views >= qrConfig.limitPerUser || trackData.forcePopup)) {
               setShowQrPopup(true);
            }
         });
@@ -700,8 +702,8 @@ function VideoFeedPage() {
               {qrConfig.popupText}
             </p>
             {qrConfig.qrCodeUrl && (
-              <div className="bg-white p-3 rounded-xl mb-6 shadow-inner">
-                <img src={qrConfig.qrCodeUrl} alt="QR Code" className="w-48 h-48 object-contain" />
+              <div className="bg-white p-3 rounded-xl mb-6 shadow-inner w-full max-w-[280px]">
+                <img src={qrConfig.qrCodeUrl} alt="QR Code" className="w-full h-auto object-contain aspect-square" />
               </div>
             )}
             <button 
