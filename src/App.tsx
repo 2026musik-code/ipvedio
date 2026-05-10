@@ -7,6 +7,52 @@ import AdminPage from './AdminPage';
 
 const API_BASE = '';
 
+const apiFetch = (url: string, options: RequestInit = {}) => {
+  const userName = localStorage.getItem('user_name') || 'Anonymous';
+  const userIp = localStorage.getItem('selected_proxy_ip') || 'Auto';
+  
+  const headers = new Headers(options.headers || {});
+  headers.set('x-user-name', userName);
+  if (!headers.has('x-user-ip')) {
+    headers.set('x-user-ip', userIp);
+  }
+  
+  return fetch(url, { ...options, headers });
+};
+
+function NamePrompt({ onComplete }: { onComplete: (name: string) => void }) {
+  const [name, setName] = useState('');
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) {
+      localStorage.setItem('user_name', name.trim());
+      onComplete(name.trim());
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] px-4 backdrop-blur-sm">
+      <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col pt-8 object-contain">
+        <h2 className="text-xl font-bold text-white mb-2 text-center">Halo! Siapa namamu?</h2>
+        <p className="text-sm text-slate-400 mb-6 text-center">Masukan nama kamu untuk memulai menonton drama.</p>
+        <input 
+          type="text" 
+          required
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ketik nama kamu..."
+          className="w-full bg-black border border-slate-700 text-white px-4 py-3 rounded-lg mb-4 focus:outline-none focus:border-red-500"
+        />
+        <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-colors">
+          Mulai Menonton
+        </button>
+      </form>
+    </div>
+  );
+}
+
 // MOCK DATA for Video Feed
 const MOCK_VIDEOS = [
   {
@@ -140,7 +186,7 @@ function HomePage() {
       setLoading(true);
       setErrorMsg(null);
       const userIp = localStorage.getItem('selected_proxy_ip') || 'Auto';
-      fetch(`${API_BASE}/api/${activeProvider}/foryou`, { headers: { 'x-user-ip': userIp } })
+      apiFetch(`${API_BASE}/api/${activeProvider}/foryou`)
         .then(res => {
           if (!res.ok) {
             if ((res.status === 502 || res.status === 503 || res.status === 504 || res.status === 429) && retryCount < 3) {
@@ -210,7 +256,7 @@ function HomePage() {
       setLoading(true);
       setErrorMsg(null);
       try {
-        const res = await fetch(`${API_BASE}/api/searchAll?q=${encodeURIComponent(query)}`);
+        const res = await apiFetch(`${API_BASE}/api/searchAll?q=${encodeURIComponent(query)}`);
         const text = await res.text();
         if (text.startsWith('<')) {
            throw new Error("API Route did not return JSON. Jika hosting, pastikan Backend Node.js Anda berjalan.");
@@ -432,14 +478,14 @@ function VideoFeedPage() {
   const [showQrPopup, setShowQrPopup] = useState(false);
 
   useEffect(() => {
-    fetch('/api/app-config')
+    apiFetch('/api/app-config')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
            setQrConfig(data.data);
            // Track view after fetching config
            if (collectionId) {
-             fetch('/api/track-view', { method: 'POST' })
+             apiFetch('/api/track-view', { method: 'POST' })
                .then(r => r.json())
                .then(trackData => {
                  if (trackData.success && trackData.views >= data.data.limitPerUser) {
@@ -455,7 +501,7 @@ function VideoFeedPage() {
   // Handle currentEpisode changes separately
   useEffect(() => {
      if (!collectionId || !qrConfig) return;
-     fetch('/api/track-view', { method: 'POST' })
+     apiFetch('/api/track-view', { method: 'POST' })
         .then(r => r.json())
         .then(trackData => {
            if (trackData.success && trackData.views >= qrConfig.limitPerUser) {
@@ -468,7 +514,7 @@ function VideoFeedPage() {
   useEffect(() => {
     if (!collectionId) {
       const userIp = localStorage.getItem('selected_proxy_ip') || 'Auto';
-      fetch(`${API_BASE}/api/reelshort/foryou`, { headers: { 'x-user-ip': userIp } })
+      apiFetch(`${API_BASE}/api/reelshort/foryou`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data && data.data.length > 0) {
@@ -490,7 +536,7 @@ function VideoFeedPage() {
   useEffect(() => {
     if (!collectionId) return;
     const userIp = localStorage.getItem('selected_proxy_ip') || 'Auto';
-    fetch(`${API_BASE}/api/${provider}/detail?id=${collectionId}`, { headers: { 'x-user-ip': userIp } })
+    apiFetch(`${API_BASE}/api/${provider}/detail?id=${collectionId}`)
       .then(res => {
         if (!res.ok) throw new Error("API Route failed: " + res.status);
         return res.json();
@@ -529,7 +575,7 @@ function VideoFeedPage() {
     
     // Fetch episode currentEpisode
     const userIp = localStorage.getItem('selected_proxy_ip') || 'Auto';
-    fetch(`${API_BASE}/api/${provider}/episode?id=${collectionId}&ep=${currentEpisode}`, { headers: { 'x-user-ip': userIp } })
+    apiFetch(`${API_BASE}/api/${provider}/episode?id=${collectionId}&ep=${currentEpisode}`)
       .then(res => {
         if (!res.ok) throw new Error("API Route failed: " + res.status);
         return res.json();
@@ -927,7 +973,7 @@ function ProfileContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/proxies')
+    apiFetch('/api/proxies')
       .then(res => res.json())
       .then(data => {
         if (data.success) setProxies(data.data);
@@ -1043,6 +1089,16 @@ function LibraryPage() {
 }
 
 export default function App() {
+  const [userName, setUserName] = useState<string | null>(localStorage.getItem('user_name'));
+
+  if (!userName) {
+    return (
+       <div className="min-h-screen bg-black text-slate-100 font-sans md:max-w-md md:mx-auto md:border-x md:border-slate-800 shadow-2xl relative overflow-x-hidden">
+         <NamePrompt onComplete={(name) => setUserName(name)} />
+       </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans md:max-w-md md:mx-auto md:border-x md:border-slate-800 shadow-2xl relative overflow-x-hidden">
       <Router>

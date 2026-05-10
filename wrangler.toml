@@ -5,3 +5,11 @@ main = "src/worker.ts"
 [assets]
 directory = "dist"
 binding = "ASSETS"
+
+[[r2_buckets]]
+binding = "vpsai"
+bucket_name = "vpsai"
+
+[[kv_namespaces]]
+binding = "SETTINGS"
+id = "settings-kv-placeholder"

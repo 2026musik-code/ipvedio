@@ -18,11 +18,11 @@ let memoryConfig = {
   popupText: "Silakan scan QR Code ini untuk melanjutkan.",
   blocklist: [] as { ip: string, ua: string }[],
   adminPassword: "admin",
-  limitPerUser: 5,
+  limitPerUser: 0,
   qrCodeUrl: ""
 };
 
-let activeUsers = new Map<string, { ip: string, ua: string, lastSeen: number, views: number }>();
+let activeUsers = new Map<string, { ip: string, ua: string, name: string, lastSeen: number, views: number }>();
 let memoryQr: { buffer: ArrayBuffer, type: string } | null = null;
 
 const getConfig = async (c: any) => {
@@ -52,6 +52,7 @@ app.use('*', async (c, next) => {
 
   const ip = c.req.header('x-real-ip') || c.req.header('cf-connecting-ip') || '127.0.0.1';
   const ua = c.req.header('user-agent') || 'Unknown';
+  const name = c.req.header('x-user-name') || 'Anonymous';
   
   // Track user
   const now = Date.now();
@@ -59,6 +60,7 @@ app.use('*', async (c, next) => {
   activeUsers.set(ip, { 
     ip, 
     ua, 
+    name: name !== 'Anonymous' ? name : (existing?.name || 'Anonymous'),
     lastSeen: now, 
     views: existing ? existing.views : 0 
   });

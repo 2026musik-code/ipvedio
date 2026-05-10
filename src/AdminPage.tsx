@@ -210,6 +210,7 @@ export default function AdminPage() {
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-slate-950/50 text-slate-400">
                     <tr>
+                      <th className="px-4 py-3">User</th>
                       <th className="px-4 py-3">IP Address</th>
                       <th className="px-4 py-3">Views</th>
                       <th className="px-4 py-3">Last Seen</th>
@@ -219,9 +220,10 @@ export default function AdminPage() {
                   <tbody className="divide-y divide-slate-800/50">
                     {data?.users?.map((u: any, i: number) => (
                       <tr key={i} className="hover:bg-slate-800/30">
-                        <td className="px-4 py-3 font-mono text-slate-300">{u.ip}</td>
+                        <td className="px-4 py-3 font-semibold text-white">{u.name || 'Anonymous'}</td>
+                        <td className="px-4 py-3 font-mono text-slate-300 text-xs">{u.ip}</td>
                         <td className="px-4 py-3 text-red-400 font-bold">{u.views}</td>
-                        <td className="px-4 py-3 text-slate-400">
+                        <td className="px-4 py-3 text-slate-400 text-xs">
                           {new Date(u.lastSeen).toLocaleTimeString()}
                         </td>
                         <td className="px-4 py-3">
@@ -235,7 +237,7 @@ export default function AdminPage() {
                     ))}
                     {(!data?.users || data.users.length === 0) && (
                       <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-slate-500">Belum ada user.</td>
+                        <td colSpan={5} className="px-4 py-8 text-center text-slate-500">Belum ada user.</td>
                       </tr>
                     )}
                   </tbody>
@@ -260,7 +262,7 @@ export default function AdminPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-2">Limit Video per User</label>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Limit Video per User (0 = Selalu Tampil)</label>
                     <input 
                       type="number"
                       value={limitPerUser}
