@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
-import { Home, Compass, Film, User, Play, ChevronLeft, MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, Loader2, Download, List, Search } from 'lucide-react';
+import { Home, Compass, Film, User, Play, ChevronLeft, MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, Loader2, Download, List, Search, Shield, Globe } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import Hls from 'hls.js';
 
@@ -270,6 +270,32 @@ function HomePage() {
         </div>
       ) : location === "/profile" ? (
         <ProfileContent />
+      ) : location === "/discover" && !searchQuery ? (
+        <main className="px-3 py-4 mt-2">
+          {series.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {series.map((item, idx) => (
+                <Link key={`discover-${item.id}-${idx}`} to={`/watch/feed?id=${item.id}&provider=${item.provider || 'reelshort'}`} className="group">
+                  <div className="aspect-[3/4] rounded-lg overflow-hidden relative mb-2 shadow-md">
+                    <img src={item.cover} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
+                    <div className="absolute top-0 right-0 bg-red-600/90 backdrop-blur-sm text-white text-[10px] uppercase px-2 py-0.5 rounded-bl font-bold">
+                       {item.provider}
+                    </div>
+                    <div className="absolute bottom-0 right-0 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded-tl-lg font-medium">
+                      {item.episodes} Eps
+                    </div>
+                  </div>
+                  <h4 className="text-sm font-semibold text-white line-clamp-2 leading-snug mb-1">{item.title}</h4>
+                  <p className="text-xs text-slate-400 font-medium capitalize">{item.provider}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="py-12 text-center text-slate-500">
+              Belum ada video di kategori ini.
+            </div>
+          )}
+        </main>
       ) : (
         <main className="px-3 mt-2">
           {searchQuery ? (
@@ -852,30 +878,43 @@ function ProfileContent() {
   };
 
   return (
-    <main className="px-4 py-6 space-y-6">
-      <div className="bg-slate-900 rounded-xl p-5 border border-slate-800">
-        <h2 className="text-xl font-bold mb-4 text-white">Proxy Settings</h2>
-        <p className="text-sm text-slate-400 mb-4">Pilih IP proxy untuk menyembunyikan identitas atau mengatasi pembatasan IP (429).</p>
-        
-        {loading ? (
-          <div className="flex justify-center my-4">
-            <Loader2 className="animate-spin text-red-500" size={24} />
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-slate-300 block">Pilih IP:</label>
-            <select
-              value={selectedIP}
-              onChange={handleSelectIP}
-              className="w-full bg-black border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"
-            >
-              <option value="Auto">Auto (Random & Rotate on Limit)</option>
-              {proxies.map(ip => (
-                <option key={ip} value={ip}>{ip}</option>
-              ))}
-            </select>
-          </div>
-        )}
+    <main className="px-4 py-8 space-y-6">
+      <div className="bg-gradient-to-br from-red-950/40 to-slate-900 rounded-2xl p-6 border border-red-900/30 shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+          <Globe size={100} />
+        </div>
+        <div className="relative z-10">
+          <h2 className="text-xl font-bold mb-2 text-white flex items-center gap-2">
+            <Shield size={20} className="text-red-500" />
+            Proxy Settings
+          </h2>
+          <p className="text-sm text-slate-300/80 mb-6 leading-relaxed">
+            Pilih IP proxy untuk menyembunyikan identitas atau mengatasi pembatasan IP ketika menonton konten region.
+          </p>
+          
+          {loading ? (
+            <div className="flex justify-center my-8">
+              <Loader2 className="animate-spin text-red-500" size={32} />
+            </div>
+          ) : (
+            <div className="space-y-3 bg-black/40 p-4 rounded-xl border border-slate-800/50">
+              <label className="text-[13px] font-semibold text-slate-300 block uppercase tracking-wider">
+                Pilih IP Server:
+              </label>
+              <select
+                value={selectedIP}
+                onChange={handleSelectIP}
+                className="w-full bg-[#111116] border border-slate-700 text-white rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-500 appearance-none shadow-inner"
+                style={{ colorScheme: 'dark' }}
+              >
+                <option value="Auto">Auto (Random & Rotate on Limit)</option>
+                {proxies.map(ip => (
+                  <option key={ip} value={ip}>{ip}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );
