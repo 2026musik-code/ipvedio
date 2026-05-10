@@ -209,14 +209,19 @@ function HomePage() {
       setErrorMsg(null);
       try {
         const res = await fetch(`${API_BASE}/api/searchAll?q=${encodeURIComponent(query)}`);
-        const json = await res.json();
+        const text = await res.text();
+        if (text.startsWith('<')) {
+           throw new Error("API Route did not return JSON. Jika hosting, pastikan Backend Node.js Anda berjalan.");
+        }
+        const json = JSON.parse(text);
         if (json.success && Array.isArray(json.data)) {
           setSeries(json.data);
         } else {
           setSeries([]);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Search error", err);
+        setErrorMsg(err.message || "Gagal memuat pencarian.");
         setSeries([]);
       }
       setLoading(false);
